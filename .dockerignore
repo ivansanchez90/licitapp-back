@@ -1,0 +1,22 @@
+# Artefactos de compilación
+**/bin/
+**/obj/
+**/out/
+
+# IDE y configs locales
+.vs/
+.vscode/
+**/.idea/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+
+# Variables de entorno locales
+**/appsettings.Development.json
+.env

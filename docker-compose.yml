@@ -1,0 +1,43 @@
+services:
+  # ---- Tu API de .NET ----
+  api:
+    build: . # construye usando el Dockerfile de esta carpeta
+    container_name: licitapp-api
+    restart: always # reinicia solo si se cae (reemplaza a PM2/systemd)
+    ports:
+      - '8080:8080' # puerto_del_VPS : puerto_del_contenedor
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # La cadena de conexión. Fijate "Host=db": NO es localhost, es el nombre
+      # del servicio de abajo. Docker resuelve "db" a la IP interna de Postgres.
+      - ConnectionStrings__Default=Host=db;Port=5432;Database=licitapp;Username=licitapp;Password=amif.os2026
+    volumes:
+      - dataprotection:/app/keys # persiste las claves de cifrado de ASP.NET
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ---- Base de datos PostgreSQL ----
+  db:
+    image: postgres:16 # imagen oficial, no la construís vos
+    container_name: licitapp-db
+    restart: always
+    environment:
+      - POSTGRES_DB=licitapp
+      - POSTGRES_USER=licitapp
+      - POSTGRES_PASSWORD=amif.os2026
+    volumes:
+      # Esto es CLAVE: persiste los datos fuera del contenedor.
+      # Sin esto, si borrás el contenedor, perdés toda la base de datos.
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432' # opcional: te permite conectarte a la DB desde tu PC con un cliente
+    healthcheck: # Docker chequea que Postgres acepte conexiones
+      test: ['CMD-SHELL', 'pg_isready -U licitapp -d licitapp']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata: # define el volumen nombrado que persiste los datos
+  dataprotection: # define el volumen para las claves de ASP.NET

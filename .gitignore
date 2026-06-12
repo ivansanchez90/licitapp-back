@@ -1,0 +1,18 @@
+# .NET build output
+bin/
+obj/
+out/
+*.user
+
+# Rider / VS
+.idea/
+.vs/
+*.suo
+
+# Secrets / entorno local
+.env
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# Logs
+*.log
