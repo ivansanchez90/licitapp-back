@@ -10,6 +10,7 @@ public interface IUserService
     Task<User> SyncAsync(string uid, string? email, SyncUserRequest req, CancellationToken ct);
     Task<User> GetRequiredAsync(string uid, CancellationToken ct);
     Task<User?> GetAsync(string uid, CancellationToken ct);
+    Task<User?> GetContactForCounterpartyAsync(string callerUid, string targetUid, CancellationToken ct);
     Task<User> UpdateAsync(string uid, UpdateUserRequest req, CancellationToken ct);
 }
 
@@ -55,6 +56,27 @@ public class UserService : IUserService
 
     public Task<User?> GetAsync(string uid, CancellationToken ct)
         => _db.Users.FirstOrDefaultAsync(u => u.Uid == uid, ct);
+
+    /// <summary>
+    /// Perfil de contacto de una contraparte. Sólo lo devuelve si caller y target
+    /// comparten una operación cerrada (solicitud con oferta ganadora donde uno es el
+    /// constructor y el otro el corralón ganador). Si no, devuelve null -> el controller
+    /// responde 404 y no se filtra ni la existencia del usuario.
+    /// </summary>
+    public async Task<User?> GetContactForCounterpartyAsync(string callerUid, string targetUid, CancellationToken ct)
+    {
+        if (callerUid == targetUid)
+            return await GetAsync(callerUid, ct);
+
+        var related = await _db.Solicitudes
+            .Where(s => s.WinningOfferId != null)
+            .AnyAsync(s => _db.Ofertas.Any(o =>
+                o.Id == s.WinningOfferId
+                && ((s.ConstructorId == callerUid && o.CorralonId == targetUid)
+                    || (s.ConstructorId == targetUid && o.CorralonId == callerUid))), ct);
+
+        return related ? await GetAsync(targetUid, ct) : null;
+    }
 
     public async Task<User> UpdateAsync(string uid, UpdateUserRequest req, CancellationToken ct)
     {

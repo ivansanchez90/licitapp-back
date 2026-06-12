@@ -12,6 +12,9 @@ public static class Mapping
         => new(u.Uid, u.Email, u.FullName, u.Role, u.Phone, u.Zone, u.BusinessName,
                u.Verified, u.PushToken, u.CreatedAt, u.Stats.ToDto());
 
+    public static UserContactDto ToContactDto(this User u)
+        => new(u.Uid, u.FullName, u.Role, u.Phone, u.Zone, u.BusinessName, u.Verified);
+
     public static MaterialDto ToDto(this Material m)
         => new(m.Id, m.Name, m.Quantity, m.Unit);
 

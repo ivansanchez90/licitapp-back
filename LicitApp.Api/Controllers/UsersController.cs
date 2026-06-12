@@ -39,4 +39,16 @@ public class UsersController : ControllerBase
         var user = await _users.UpdateAsync(User.RequireUid(), req, ct);
         return Ok(user.ToDto());
     }
+
+    /// <summary>
+    /// Datos de contacto de una contraparte. Sólo accesible si el usuario autenticado y
+    /// {uid} comparten una operación cerrada (constructor ↔ corralón ganador).
+    /// Responde 404 si no existe esa relación (privacidad) o si el usuario no existe.
+    /// </summary>
+    [HttpGet("{uid}")]
+    public async Task<ActionResult<UserContactDto>> GetContact(string uid, CancellationToken ct)
+    {
+        var user = await _users.GetContactForCounterpartyAsync(User.RequireUid(), uid, ct);
+        return user is null ? NotFound() : Ok(user.ToContactDto());
+    }
 }

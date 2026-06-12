@@ -19,6 +19,19 @@ public record UserDto(
     StatsDto Stats);
 
 /// <summary>
+/// Datos de contacto públicos de una contraparte (pantallas oferta-aceptada / venta-cerrada).
+/// Subconjunto acotado de UserDto: sin email, pushToken ni stats.
+/// </summary>
+public record UserContactDto(
+    string Uid,
+    string FullName,
+    UserRole Role,
+    string Phone,
+    string Zone,
+    string? BusinessName,
+    bool Verified);
+
+/// <summary>
 /// Body de POST /api/users/sync. El email/uid salen del token; el resto del registro.
 /// </summary>
 public class SyncUserRequest
