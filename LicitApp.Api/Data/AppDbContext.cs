@@ -75,6 +75,7 @@ public class AppDbContext : DbContext
             e.Property(o => o.ShippingType).HasConversion<string>().HasMaxLength(32);
             e.Property(o => o.TotalPrice).HasColumnType("numeric(18,2)");
             e.Property(o => o.ShippingPrice).HasColumnType("numeric(18,2)");
+            e.Property(o => o.AttachmentUrl).HasMaxLength(2048);
             e.HasIndex(o => o.SolicitudId);
             e.HasIndex(o => o.CorralonId);
             e.HasIndex(o => new { o.SolicitudId, o.Status });

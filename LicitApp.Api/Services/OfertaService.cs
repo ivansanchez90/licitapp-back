@@ -59,6 +59,7 @@ public class OfertaService : IOfertaService
             DeliveryHours = req.DeliveryHours,
             ValidUntil = req.ValidUntil,
             Comment = req.Comment,
+            AttachmentUrl = NormalizeAttachmentUrl(req.AttachmentUrl),
             Status = OfertaStatus.ACTIVE,
             IsFastDelivery = req.DeliveryHours <= 24,
             CreatedAt = DateTime.UtcNow,
@@ -146,6 +147,8 @@ public class OfertaService : IOfertaService
         oferta.DeliveryHours = req.DeliveryHours;
         oferta.IsFastDelivery = req.DeliveryHours <= 24;
         oferta.Comment = req.Comment;
+        // PUT con semántica de reemplazo: null/vacío borra el adjunto.
+        oferta.AttachmentUrl = NormalizeAttachmentUrl(req.AttachmentUrl);
 
         await _db.SaveChangesAsync(ct);
 
@@ -268,5 +271,22 @@ public class OfertaService : IOfertaService
     {
         if (type is ShippingType.CHARGED or ShippingType.FIXED_PRICE && price is null or <= 0)
             throw AppException.BadRequest("El envío con cargo requiere un shippingPrice mayor a 0.");
+    }
+
+    /// <summary>
+    /// Normaliza el adjunto: vacío/whitespace -> null (borra el adjunto). Si trae valor,
+    /// debe ser una URL absoluta bien formada; si no, 400. El backend no valida que el
+    /// archivo exista en Storage ni que sea de un proveedor en particular.
+    /// </summary>
+    private static string? NormalizeAttachmentUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        var trimmed = url.Trim();
+        if (!Uri.IsWellFormedUriString(trimmed, UriKind.Absolute))
+            throw AppException.BadRequest("El adjunto debe ser una URL absoluta válida.");
+
+        return trimmed;
     }
 }

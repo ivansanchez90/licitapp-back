@@ -30,6 +30,10 @@ public class Oferta
     public DateTime ValidUntil { get; set; }
     public string? Comment { get; set; }
 
+    // URL pública del presupuesto/foto adjunta (Firebase Storage u otro). El backend
+    // sólo persiste la URL: no sube ni almacena bytes. Mismo patrón que Solicitud.AttachmentUrl.
+    public string? AttachmentUrl { get; set; }
+
     public OfertaStatus Status { get; set; } = OfertaStatus.ACTIVE;
 
     // Badge: es la oferta ACTIVE más barata.

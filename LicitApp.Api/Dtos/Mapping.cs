@@ -28,7 +28,7 @@ public static class Mapping
         => new(o.Id, o.SolicitudId, o.CorralonId, o.CorralonName, o.CorralonRating,
                o.TotalPrice, o.ShippingType, o.ShippingPrice, o.DeliveryHours,
                o.ValidUntil, o.Comment, o.Status, o.IsBestPrice, o.IsFastDelivery,
-               o.CreatedAt, solicitudTitle, solicitudDeadline);
+               o.CreatedAt, o.AttachmentUrl, solicitudTitle, solicitudDeadline);
 
     public static NotificationDto ToDto(this Notification n)
         => new(n.Id, n.UserId, n.Type, n.Title, n.Body, n.SolicitudId, n.OfertaId, n.Read, n.CreatedAt);
