@@ -21,11 +21,13 @@ public class OfertaService : IOfertaService
 {
     private readonly AppDbContext _db;
     private readonly IUserService _users;
+    private readonly IPushQueue _pushQueue;
 
-    public OfertaService(AppDbContext db, IUserService users)
+    public OfertaService(AppDbContext db, IUserService users, IPushQueue pushQueue)
     {
         _db = db;
         _users = users;
+        _pushQueue = pushQueue;
     }
 
     /// <summary>Regla #2: crear oferta. Verifica OPEN, recalcula badges, incrementa contadores. Transaccional.</summary>
@@ -67,7 +69,8 @@ public class OfertaService : IOfertaService
         corralon.Stats.TotalOfertas += 1;
 
         // NEW_OFFER: notificar al constructor dueño de la solicitud.
-        _db.Notifications.Add(NotificationFactory.NewOffer(solicitud.ConstructorId, solicitud, oferta));
+        var notif = NotificationFactory.NewOffer(solicitud.ConstructorId, solicitud, oferta);
+        _db.Notifications.Add(notif);
 
         await _db.SaveChangesAsync(ct);
 
@@ -76,6 +79,9 @@ public class OfertaService : IOfertaService
         await _db.SaveChangesAsync(ct);
 
         await tx.CommitAsync(ct);
+
+        // Encolar tras el commit: si la transacción se revierte, no se envía nada.
+        _pushQueue.Enqueue(new[] { notif });
         return oferta;
     }
 
@@ -205,19 +211,21 @@ public class OfertaService : IOfertaService
             throw AppException.Conflict("La oferta seleccionada no está activa.");
 
         // Ganadora -> WON; el resto de las ACTIVE -> LOST. Notificar a cada corralón.
+        var notifs = new List<Notification>();
         foreach (var o in solicitud.Ofertas.Where(o => o.Status == OfertaStatus.ACTIVE).ToList())
         {
             if (o.Id == ganadora.Id)
             {
                 o.Status = OfertaStatus.WON;
-                _db.Notifications.Add(NotificationFactory.OfferWon(solicitud, o));
+                notifs.Add(NotificationFactory.OfferWon(solicitud, o));
             }
             else
             {
                 o.Status = OfertaStatus.LOST;
-                _db.Notifications.Add(NotificationFactory.OfferLost(solicitud, o));
+                notifs.Add(NotificationFactory.OfferLost(solicitud, o));
             }
         }
+        _db.Notifications.AddRange(notifs);
 
         solicitud.Status = SolicitudStatus.CLOSED;
         solicitud.WinningOfferId = ganadora.Id;
@@ -232,6 +240,8 @@ public class OfertaService : IOfertaService
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
+        // Encolar tras el commit el push a ganador (WON) y perdedores (LOST).
+        _pushQueue.Enqueue(notifs);
         return solicitud;
     }
 

@@ -17,11 +17,13 @@ public class SolicitudService : ISolicitudService
 {
     private readonly AppDbContext _db;
     private readonly IUserService _users;
+    private readonly IPushQueue _pushQueue;
 
-    public SolicitudService(AppDbContext db, IUserService users)
+    public SolicitudService(AppDbContext db, IUserService users, IPushQueue pushQueue)
     {
         _db = db;
         _users = users;
+        _pushQueue = pushQueue;
     }
 
     /// <summary>Crea la solicitud + todos sus materiales en una sola transacción (rol constructor).</summary>
@@ -67,14 +69,18 @@ public class SolicitudService : ISolicitudService
             .Select(u => u.Uid)
             .ToListAsync(ct);
 
-        foreach (var corralonUid in corralonUids)
-            _db.Notifications.Add(NotificationFactory.NewRequest(corralonUid, solicitud));
+        var notifs = corralonUids
+            .Select(corralonUid => NotificationFactory.NewRequest(corralonUid, solicitud))
+            .ToList();
+        _db.Notifications.AddRange(notifs);
 
         solicitud.CorralonesNotifiedCount = corralonUids.Count;
 
         await _db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
+        // Encolar tras el commit el push a los corralones de la zona.
+        _pushQueue.Enqueue(notifs);
         return solicitud;
     }
 

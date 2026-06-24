@@ -5,7 +5,12 @@
       "Read(//tmp/**)",
       "Bash(curl -fsSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh)",
       "Bash(chmod +x dotnet-install.sh)",
-      "Bash(./dotnet-install.sh --channel 10.0 --install-dir /home/ivan/.dotnet)"
+      "Bash(./dotnet-install.sh --channel 10.0 --install-dir /home/ivan/.dotnet)",
+      "Bash(dotnet build *)",
+      "Bash(which dotnet *)",
+      "Read(//home/ivansanchez/.dotnet/**)",
+      "Read(//usr/share/dotnet/**)",
+      "Read(//usr/local/bin/**)"
     ]
   }
 }

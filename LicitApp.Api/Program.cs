@@ -99,6 +99,15 @@ builder.Services.AddScoped<ISolicitudService, SolicitudService>();
 builder.Services.AddScoped<IOfertaService, OfertaService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
+// Envío de push vía Expo (typed HttpClient). Best-effort tras persistir cada notificación.
+builder.Services.Configure<ExpoPushOptions>(builder.Configuration.GetSection("Notifications:Push"));
+builder.Services.AddHttpClient<IPushSender, ExpoPushSender>();
+
+// Cola en memoria: los servicios encolan, el procesador en background hace el envío real.
+builder.Services.AddSingleton<PushQueue>();
+builder.Services.AddSingleton<IPushQueue>(sp => sp.GetRequiredService<PushQueue>());
+builder.Services.AddHostedService<PushQueueProcessor>();
+
 // Job en background: notificaciones DEADLINE_NEAR.
 builder.Services.Configure<DeadlineNearOptions>(builder.Configuration.GetSection("Notifications:DeadlineNear"));
 builder.Services.AddHostedService<DeadlineNearService>();

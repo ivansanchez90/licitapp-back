@@ -26,15 +26,18 @@ public class DeadlineNearOptions
 public class DeadlineNearService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IPushQueue _pushQueue;
     private readonly DeadlineNearOptions _options;
     private readonly ILogger<DeadlineNearService> _logger;
 
     public DeadlineNearService(
         IServiceScopeFactory scopeFactory,
+        IPushQueue pushQueue,
         IOptions<DeadlineNearOptions> options,
         ILogger<DeadlineNearService> logger)
     {
         _scopeFactory = scopeFactory;
+        _pushQueue = pushQueue;
         _options = options.Value;
         _logger = logger;
     }
@@ -90,12 +93,17 @@ public class DeadlineNearService : BackgroundService
                             n.Type == NotificationType.DEADLINE_NEAR && n.SolicitudId == s.Id))
             .ToListAsync(ct);
 
-        foreach (var s in pendientes)
-            db.Notifications.Add(NotificationFactory.DeadlineNear(s.ConstructorId, s));
+        var notifs = pendientes
+            .Select(s => NotificationFactory.DeadlineNear(s.ConstructorId, s))
+            .ToList();
+        db.Notifications.AddRange(notifs);
 
-        if (pendientes.Count > 0)
+        if (notifs.Count > 0)
+        {
             await db.SaveChangesAsync(ct);
+            _pushQueue.Enqueue(notifs);
+        }
 
-        return pendientes.Count;
+        return notifs.Count;
     }
 }
