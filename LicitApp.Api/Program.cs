@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,11 +117,29 @@ builder.Services.AddHostedService<DeadlineNearService>();
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"));
 
+// ---------------------------------------------------------------------------
+// Almacenamiento de archivos en disco (POST /api/files + servir bajo /files).
+// Límites del pipeline con margen sobre los 10 MB que valida el endpoint.
+// ---------------------------------------------------------------------------
+builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 11 * 1024 * 1024;
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 11 * 1024 * 1024;
+});
+
 var app = builder.Build();
 
 // Aplicar migraciones al arranque (crea/actualiza el esquema).
-using (var scope = app.Services.CreateScope())
+// En entorno de test no hay Postgres real (se usa InMemory), así que se omite.
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
@@ -134,6 +154,25 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(CorsPolicy);
 app.UseAuthentication();
+
+// Servir los archivos subidos como estáticos bajo /files, SIN auth (mismo modelo
+// público que tenía getDownloadURL de Firebase Storage). El directorio debe existir
+// antes de construir el PhysicalFileProvider.
+var fileStorageRoot = Path.GetFullPath(app.Configuration["FileStorage:RootPath"]
+    ?? "/var/lib/licitapp/files");
+Directory.CreateDirectory(fileStorageRoot);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(fileStorageRoot),
+    RequestPath = "/files",
+    OnPrepareResponse = ctx =>
+    {
+        // 1 hora de cache pública. Como la URL incluye timestamp, es seguro subirlo.
+        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=3600";
+    }
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
@@ -142,3 +181,6 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();
+
+// Expuesto como public partial para que WebApplicationFactory<Program> lo referencie en los tests.
+public partial class Program { }

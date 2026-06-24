@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="LicitApp.Api/LicitApp.Api.csproj" />
+  <Project Path="LicitApp.Api.Tests/LicitApp.Api.Tests.csproj" />
 </Solution>

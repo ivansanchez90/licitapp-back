@@ -63,8 +63,11 @@ tocar el repo, usá `appsettings.Development.json` (gitignored), variables de en
 | `ConnectionStrings:Default`    | `Host=localhost;Port=5432;Database=licitapp;Username=licitapp;Password=licitapp_dev` |
 | `Firebase:ProjectId`           | `licitapp-e1841`                                                         |
 | `Cors:AllowedOrigins`          | `[]` (en Development se permite cualquier origen)                        |
+| `FileStorage:RootPath`         | `/var/lib/licitapp/files` (directorio físico de los uploads)            |
+| `FileStorage:BaseUrl`          | `https://licitapp-api.blackandred.com.ar/files`                         |
 
-Variables de entorno equivalentes: `ConnectionStrings__Default`, `Firebase__ProjectId`.
+Variables de entorno equivalentes: `ConnectionStrings__Default`, `Firebase__ProjectId`,
+`FileStorage__RootPath`, `FileStorage__BaseUrl`.
 
 ## Autenticación
 
@@ -130,6 +133,12 @@ curl -s $BASE/api/users/me -H "Authorization: Bearer $TOKEN"
 | PUT    | `/api/solicitudes/{id}/ofertas/{ofertaId}`          | Editar oferta.                    |
 | POST   | `/api/solicitudes/{id}/ofertas/{ofertaId}/withdraw` | Retirar (`WITHDRAWN`).            |
 | POST   | `/api/solicitudes/{id}/accept`                      | Aceptar ganadora (body `ofertaId`). |
+
+### Archivos
+| Método | Ruta            | Descripción                                                            |
+|--------|-----------------|-----------------------------------------------------------------------|
+| POST   | `/api/files`    | Sube un archivo (`multipart`: `file` + `path`). Devuelve `{ url }`.   |
+| GET    | `/files/{path}` | Sirve el archivo subido como estático, **sin auth**.                  |
 
 ### Notificaciones / Health
 | Método | Ruta                            | Descripción                |
@@ -210,8 +219,28 @@ LicitApp.Api/
 docker-compose.yml · Dockerfile · .env.example
 ```
 
+## Almacenamiento de archivos
+
+Los adjuntos (PDF de presupuesto, foto de material) se suben vía `POST /api/files`
+(multipart con `file` + `path`) y se guardan **en disco** en el propio backend, en
+lugar de Firebase Storage. El endpoint valida tamaño (≤ 10 MB), content-type (solo
+`application/pdf` o `image/*`), que el `{uid}` del `path` coincida con el del token,
+sanitiza el nombre y bloquea path traversal. Devuelve `{ url }`, que el front usa
+como `attachmentUrl` al crear solicitudes u ofertas.
+
+- Los archivos se sirven como estáticos bajo `/files/...`, **sin autenticación**
+  (mismo modelo público que tenía `getDownloadURL` de Firebase).
+- El directorio físico es `FileStorage:RootPath` (configurable por env
+  `FileStorage__RootPath`). La URL devuelta se arma con `FileStorage:BaseUrl`.
+- **En producción ese directorio debe estar en un volumen persistente** (ya montado
+  en `docker-compose.yml` como `licitapp_files`) o ser respaldable; si no, los
+  archivos se pierden en cada redeploy.
+- Los archivos **huérfanos** (cuyo dueño `Solicitud` / `Oferta` fue borrado) quedan
+  en disco. La limpieza programada queda fuera de scope por ahora.
+
 ## Fuera de alcance (puntos de extensión)
 
 - **Tiempo real** (SignalR) — el front puede hacer polling/refetch por ahora.
-- **Storage de adjuntos** — el front sigue subiendo a Firebase Storage y manda `attachmentUrl`.
-- **Push notifications** — las `Notification` se persisten; el envío vía Expo queda para después.
+- **Borrado de archivos huérfanos** — sin job de limpieza; ver "Almacenamiento de archivos".
+- **CDN / object storage** — para MVP se sirve directo desde Kestrel; a futuro R2 / S3 / MinIO.
+- **Antivirus en uploads** — los archivos no se escanean al subir.

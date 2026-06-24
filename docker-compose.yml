@@ -11,8 +11,12 @@ services:
       # La cadena de conexión. Fijate "Host=db": NO es localhost, es el nombre
       # del servicio de abajo. Docker resuelve "db" a la IP interna de Postgres.
       - ConnectionStrings__Default=Host=db;Port=5432;Database=licitapp;Username=licitapp;Password=amif.os2026
+      # Almacenamiento de archivos subidos vía POST /api/files.
+      - FileStorage__RootPath=/var/lib/licitapp/files
+      - FileStorage__BaseUrl=https://licitapp-api.blackandred.com.ar/files
     volumes:
       - dataprotection:/app/keys # persiste las claves de cifrado de ASP.NET
+      - licitapp_files:/var/lib/licitapp/files # persiste los archivos subidos
     depends_on:
       db:
         condition: service_healthy
@@ -41,3 +45,4 @@ services:
 volumes:
   pgdata: # define el volumen nombrado que persiste los datos
   dataprotection: # define el volumen para las claves de ASP.NET
+  licitapp_files: # define el volumen para los archivos subidos (/api/files)
